@@ -9,14 +9,17 @@ from typing import Any
 import cv2 as cv
 import numpy as np
 from numpy.typing import NDArray
-from relational_structs import Array, ObjectCentricState
+from relational_structs import Array, Object, ObjectCentricState
 from relational_structs.utils import create_state_from_dict
 
 from prbench.core import ConstantObjectPRBenchEnv, FinalConfigMeta, PRBenchEnvConfig
 from prbench.envs.tidybot.base_env import (
     ObjectCentricDynamic3DRobotEnv,
 )
-from prbench.envs.tidybot.object_types import MujocoObjectTypeFeatures
+from prbench.envs.tidybot.object_types import (
+    MujocoObjectTypeFeatures,
+    MujocoRobotObjectType,
+)
 from prbench.envs.tidybot.objects import Cube, MujocoObject
 from prbench.envs.tidybot.tidybot_rewards import create_reward_calculator
 from prbench.envs.tidybot.tidybot_robot_env import TidyBotRobotEnv
@@ -100,13 +103,17 @@ class ObjectCentricTidyBot3DEnv(ObjectCentricDynamic3DRobotEnv[TidyBot3DConfig])
             model_file = "cupboard_scene.xml"
         elif self.scene_type == "table":
             model_file = "table_scene.xml"
-        else:
+        elif self.scene_type == "ground":
             model_file = "ground_scene.xml"
+        elif self.scene_type == "base_motion":
+            model_file = "base_motion.xml"
+        else:
+            raise ValueError(f"Unrecognized scene type: {self.scene_type}")
         # Construct absolute path to model file
         absolute_model_path = model_base_path / model_file
 
         # --- Dynamic object insertion logic ---
-        needs_dynamic_objects = self.scene_type in ["ground", "table"]
+        needs_dynamic_objects = self.scene_type in ["ground", "table", "base_motion"]
         if needs_dynamic_objects:
             tree = ET.parse(str(absolute_model_path))
             root = tree.getroot()
@@ -119,12 +126,15 @@ class ObjectCentricTidyBot3DEnv(ObjectCentricDynamic3DRobotEnv[TidyBot3DConfig])
                     ):
                         worldbody.remove(body)
                 # Insert new cubes
+                # For the base motion environment, make the cube small enough that the
+                # robot can roll over it without a collision.
+                cube_size = 0.01 if self.scene_type == "base_motion" else 0.02
                 for i in range(self.num_objects):
                     name = f"cube{i+1}"
                     # Create cube using the Cube class
                     obj = Cube(
                         name=name,
-                        size=0.02,
+                        size=cube_size,
                         rgba=".5 .7 .5 1",
                         mass=0.1,
                         env=self._robot_env,
@@ -185,6 +195,7 @@ class ObjectCentricTidyBot3DEnv(ObjectCentricDynamic3DRobotEnv[TidyBot3DConfig])
         options: dict[str, Any] | None = None,
     ) -> tuple[ObjectCentricState, dict[str, Any]]:
         """Reset the environment and return object-centric observation."""
+
         # Create scene XML
         self._objects = []
         xml_string = self._create_scene_xml()
@@ -234,6 +245,37 @@ class ObjectCentricTidyBot3DEnv(ObjectCentricDynamic3DRobotEnv[TidyBot3DConfig])
         for obj in self._objects:
             obj_data = obj.get_object_centric_data()
             state_dict[obj.object_state_type] = obj_data
+        # Add robot into object-centric state.
+        robot = Object("robot", MujocoRobotObjectType)
+        # Build this super explicitly, even though verbose, to be careful.
+        assert self._robot_env.qpos_base is not None
+        assert self._robot_env.qpos_arm is not None
+        assert self._robot_env.qvel_base is not None
+        assert self._robot_env.qvel_arm is not None
+        state_dict[robot] = {
+            "pos_base_x": self._robot_env.qpos_base[0],
+            "pos_base_y": self._robot_env.qpos_base[1],
+            "pos_base_rot": self._robot_env.qpos_base[2],
+            "pos_arm_joint1": self._robot_env.qpos_arm[0],
+            "pos_arm_joint2": self._robot_env.qpos_arm[1],
+            "pos_arm_joint3": self._robot_env.qpos_arm[2],
+            "pos_arm_joint4": self._robot_env.qpos_arm[3],
+            "pos_arm_joint5": self._robot_env.qpos_arm[4],
+            "pos_arm_joint6": self._robot_env.qpos_arm[5],
+            "pos_arm_joint7": self._robot_env.qpos_arm[6],
+            "pos_gripper": 0,  # NOTE: gripper not yet available (is None), fix later
+            "vel_base_x": self._robot_env.qvel_base[0],
+            "vel_base_y": self._robot_env.qvel_base[1],
+            "vel_base_rot": self._robot_env.qvel_base[2],
+            "vel_arm_joint1": self._robot_env.qvel_arm[0],
+            "vel_arm_joint2": self._robot_env.qvel_arm[1],
+            "vel_arm_joint3": self._robot_env.qvel_arm[2],
+            "vel_arm_joint4": self._robot_env.qvel_arm[3],
+            "vel_arm_joint5": self._robot_env.qvel_arm[4],
+            "vel_arm_joint6": self._robot_env.qvel_arm[5],
+            "vel_arm_joint7": self._robot_env.qvel_arm[6],
+            "vel_gripper": 0,  # NOTE: gripper not yet available (is None), fix later
+        }
         return create_state_from_dict(state_dict, MujocoObjectTypeFeatures)
 
     def step(
@@ -298,18 +340,6 @@ class ObjectCentricTidyBot3DEnv(ObjectCentricDynamic3DRobotEnv[TidyBot3DConfig])
     def set_render_camera(self, camera_name: str | None) -> None:
         """Set the camera to use for rendering."""
         self._render_camera_name = camera_name
-
-    @classmethod
-    def get_available_environments(cls) -> list[str]:
-        """Get list of available TidyBot environment IDs (policy-agnostic)."""
-        scene_configs = [
-            ("ground", [3, 5, 7]),
-        ]
-        env_ids = []
-        for scene_type, object_counts in scene_configs:
-            for num_objects in object_counts:
-                env_ids.append(f"prbench/TidyBot3D-{scene_type}-o{num_objects}-v0")
-        return env_ids
 
 
 class TidyBot3DEnv(ConstantObjectPRBenchEnv):
