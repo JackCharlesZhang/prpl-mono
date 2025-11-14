@@ -229,7 +229,7 @@ class PyBulletSim:
             (x.get(robot_obj, "pos_base_x"), x.get(robot_obj, "pos_base_y"), 0.0),
             (0, 0, x.get(robot_obj, "pos_base_rot")),
         )
-        arm_pose = multiply_poses(self._base_to_arm_pose, base_pose)
+        arm_pose = multiply_poses(base_pose, self._base_to_arm_pose)
         self._robot.set_base(arm_pose)
         # Update the arm conf.
         arm_conf = [
@@ -367,7 +367,7 @@ class MoveArmToConfController(GroundParameterizedController[ObjectCentricState, 
         current_conf = self._get_current_robot_arm_conf()
         assert self._pybullet_sim is not None
         dist = self._pybullet_sim.get_joint_distance(current_conf, conf)
-        return dist < 2 * 1e-2
+        return dist < 3 * 1e-2
 
 
 class MoveArmToEndEffectorController(
@@ -404,23 +404,44 @@ class MoveArmToEndEffectorController(
         self._last_state = x
         assert isinstance(params, np.ndarray)
         self._current_params = params.copy()
+
+        # Reset PyBullet given the current state.
+        self._pybullet_sim.set_state(x)
+
+        current_arm_base_pose = self._pybullet_sim.robot.get_base_pose()
+
+        target_end_effector_pose_temp = multiply_poses(
+            current_arm_base_pose,
+            Pose(
+                (
+                    self._current_params[0],
+                    self._current_params[1],
+                    self._current_params[2],
+                ),
+                (0, 0, 0, 1),
+            ),
+        )
+
         target_end_effector_pose = Pose(
-            (self._current_params[0], self._current_params[1], self._current_params[2]),
             (
+                target_end_effector_pose_temp.position[0],
+                target_end_effector_pose_temp.position[1],
+                target_end_effector_pose_temp.position[2],
+            ),
+            (
+                self._current_params[3],
                 self._current_params[4],
                 self._current_params[5],
                 self._current_params[6],
-                self._current_params[3],
             ),
-        )  # (w, x, y, z) -> (x, y, z, w)
+        )
+
         target_joints = inverse_kinematics(
             self._pybullet_sim.robot,
             target_end_effector_pose,
-            validate=True,
-            set_joints=True,
+            set_joints=False,
         )
-        # Reset PyBullet given the current state.
-        self._pybullet_sim.set_state(x)
+
         # Run motion planning.
         plan = run_motion_planning(
             self._pybullet_sim.robot,
@@ -430,6 +451,7 @@ class MoveArmToEndEffectorController(
             seed=0,  # use a constant seed to make this effectively deterministic
             physics_client_id=self._pybullet_sim.physics_client_id,
         )
+
         assert plan is not None, "Motion planning failed"
         self._current_arm_joint_plan = plan
 
@@ -479,7 +501,7 @@ class MoveArmToEndEffectorController(
         current_conf = self._get_current_robot_arm_conf()
         assert self._pybullet_sim is not None
         dist = self._pybullet_sim.get_joint_distance(current_conf, conf)
-        return dist < 2 * 1e-2
+        return dist < 3 * 1e-2
 
 
 def create_lifted_controllers(
