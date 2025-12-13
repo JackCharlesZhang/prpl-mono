@@ -4,6 +4,13 @@ import time
 
 import imageio.v2 as iio
 import numpy as np
+
+# Monkey-patch Tobject before importing prbench
+import tomsgeoms2d.structs
+if not hasattr(tomsgeoms2d.structs, "Tobject"):
+    from tomsgeoms2d.structs import Lobject
+    tomsgeoms2d.structs.Tobject = Lobject
+
 import prbench
 import pytest
 from conftest import MAKE_VIDEOS
