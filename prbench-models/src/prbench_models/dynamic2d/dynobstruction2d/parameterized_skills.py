@@ -179,11 +179,19 @@ class GroundPickController(Dynamic2dRobotController):
                 "Failed to find a collision-free path to target."
             )
 
-        # Simple waypoint generation: go directly to target
-        # In a full implementation, we could use motion planning here
+        # Waypoint generation: navigate to block, then to grasp pose
         final_waypoints: list[tuple[SE2Pose, float]] = [
             (SE2Pose(robot_x, robot_y, robot_theta), robot_radius)
         ]
+
+        # Add intermediate waypoint: move robot base near the block
+        # Position robot close to block (within arm's reach) before final grasp
+        intermediate_x = block_x
+        intermediate_y = block_y
+        intermediate_theta = target_se2_pose.theta  # Use grasp orientation
+        intermediate_arm = robot_radius  # Retract arm during navigation
+
+        final_waypoints.append((SE2Pose(intermediate_x, intermediate_y, intermediate_theta), intermediate_arm))
         final_waypoints.append((target_se2_pose, desired_arm_length))
         return final_waypoints
 
