@@ -138,6 +138,14 @@ class GroundPickController(Dynamic2dRobotController):
         robot_y = state.get(self._robot, "y")
         robot_theta = state.get(self._robot, "theta")
         robot_radius = state.get(self._robot, "base_radius")
+
+        # DEBUG: Log current robot and block positions
+        block_x = state.get(self._block, "x")
+        block_y = state.get(self._block, "y")
+        print(f"    [PICK_DEBUG] Robot at ({robot_x:.2f},{robot_y:.2f}), "
+              f"Block at ({block_x:.2f},{block_y:.2f}), "
+              f"Distance: {((robot_x-block_x)**2 + (robot_y-block_y)**2)**0.5:.2f}")
+
         # Calculate grasp point and robot target position
         target_se2_pose = self._calculate_grasp_robot_pose(
             state, grasp_ratio, side, desired_arm_length
