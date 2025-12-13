@@ -56,11 +56,10 @@ def create_bilevel_planning_models(
         u: NDArray,
     ) -> ObjectCentricState:
         """Simulate the action."""
-        state = x.copy()
-        sim.reset(seed=123)
-        sim._add_state_to_space(state)
+        # Reset the simulator to the input state (not a fixed seed!)
+        sim.reset(options={"init_state": x})
         obs, _, _, _, _ = sim.step(u)
-        return obs.copy()
+        return obs
 
     # Types.
     types = {KinRobotType, DynRectangleType, TargetBlockType, TargetSurfaceType}
