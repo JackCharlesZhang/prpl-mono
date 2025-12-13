@@ -159,6 +159,14 @@ class GroundPickController(Dynamic2dRobotController):
         static_objects = set(full_state) - moving_objects
 
         if state_2d_has_collision(full_state, moving_objects, static_objects, {}):
+            # Debug logging for collision failures
+            side_name = ("left" if side < 0.25 else
+                        "right" if side < 0.5 else
+                        "top" if side < 0.75 else "bottom")
+            print(f"    [PICK_COLLISION] side={side_name}({side:.2f}), "
+                  f"ratio={grasp_ratio:.2f}, arm_len={desired_arm_length:.2f}, "
+                  f"target_pos=({target_se2_pose.x:.2f},{target_se2_pose.y:.2f}), "
+                  f"block={self._block.name}")
             raise TrajectorySamplingFailure(
                 "Failed to find a collision-free path to target."
             )
