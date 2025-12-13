@@ -156,13 +156,18 @@ class GroundPickController(Dynamic2dRobotController):
         if init_constant_state is not None:
             full_state.data.update(init_constant_state.data)
 
-        # Check if the target pose is collision-free
-        full_state.set(self._robot, "x", target_se2_pose.x)
-        full_state.set(self._robot, "y", target_se2_pose.y)
-        full_state.set(self._robot, "theta", target_se2_pose.theta)
-        full_state.set(self._robot, "arm_joint", desired_arm_length)
+        # Check if the intermediate navigation pose is collision-free
+        # We check the intermediate waypoint (robot at block position) rather than
+        # the final grasp pose, since we navigate there first
+        intermediate_theta = target_se2_pose.theta
+        intermediate_arm = robot_radius  # Retract arm during navigation
 
-        # Check target state collision
+        full_state.set(self._robot, "x", block_x)
+        full_state.set(self._robot, "y", block_y)
+        full_state.set(self._robot, "theta", intermediate_theta)
+        full_state.set(self._robot, "arm_joint", intermediate_arm)
+
+        # Check intermediate navigation state collision
         moving_objects = {self._robot}
         static_objects = set(full_state) - moving_objects
 
@@ -172,8 +177,8 @@ class GroundPickController(Dynamic2dRobotController):
                         "right" if side < 0.5 else
                         "top" if side < 0.75 else "bottom")
             print(f"    [PICK_COLLISION] side={side_name}({side:.2f}), "
-                  f"ratio={grasp_ratio:.2f}, arm_len={desired_arm_length:.2f}, "
-                  f"target_pos=({target_se2_pose.x:.2f},{target_se2_pose.y:.2f}), "
+                  f"ratio={grasp_ratio:.2f}, arm_len={intermediate_arm:.2f}, "
+                  f"intermediate_pos=({block_x:.2f},{block_y:.2f}), "
                   f"block={self._block.name}")
             raise TrajectorySamplingFailure(
                 "Failed to find a collision-free path to target."
