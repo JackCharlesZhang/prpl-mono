@@ -210,7 +210,7 @@ class Dynamic2dRobotController(GroundParameterizedController, abc.ABC):
             distance_fn=distance_fn,
             rng=rng,
             num_attempts=10,
-            num_iters=100,
+            num_iters=500,  # Increased from 100 to handle longer distances
             smooth_amt=50,
         )
 
