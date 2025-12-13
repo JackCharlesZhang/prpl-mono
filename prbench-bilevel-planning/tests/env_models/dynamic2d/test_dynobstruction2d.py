@@ -321,15 +321,17 @@ def test_dynobstruction2d_bilevel_planning(
     obs, info = env.reset(seed=0)
 
     total_reward = 0
-    agent.reset(obs, info)
-    for _ in range(1000):
-        action = agent.step()
-        obs, reward, terminated, truncated, info = env.step(action)
-        total_reward += reward
-        agent.update(obs, reward, terminated or truncated, info)
-        if terminated or truncated:
-            break
-    else:
-        assert False, "Did not terminate successfully"
-
-    env.close()
+    try:
+        agent.reset(obs, info)
+        for _ in range(1000):
+            action = agent.step()
+            obs, reward, terminated, truncated, info = env.step(action)
+            total_reward += reward
+            agent.update(obs, reward, terminated or truncated, info)
+            if terminated or truncated:
+                break
+        else:
+            assert False, "Did not terminate successfully"
+    finally:
+        # Always close env to save video, even if planning fails
+        env.close()
