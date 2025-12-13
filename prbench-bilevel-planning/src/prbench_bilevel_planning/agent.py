@@ -70,6 +70,12 @@ class BilevelPlanningAgent(Agent[_O, _U]):
         # Create planning problem.
         initial_state = self._env_models.observation_to_state(self._last_observation)
         goal = self._env_models.goal_deriver(initial_state)
+
+        print(f"\n[DEBUG] Agent._run_planning() called:")
+        print(f"  Initial abstract state: {self._env_models.state_abstractor(initial_state)}")
+        print(f"  Goal: {goal.atoms}")
+        print(f"  Planning params: max_abstract_plans={self._max_abstract_plans}, samples_per_step={self._samples_per_step}, timeout={self._planning_timeout}s")
+
         problem = PlanningProblem(
             self._env_models.state_space,
             self._env_models.action_space,
@@ -114,8 +120,14 @@ class BilevelPlanningAgent(Agent[_O, _U]):
         )
 
         # Run the planner.
-        plan, _ = planner.run(problem, timeout=self._planning_timeout)
+        print(f"[DEBUG] Calling SesamePlanner.run()...")
+        plan, bpg = planner.run(problem, timeout=self._planning_timeout)
+
         if plan is None:
+            print(f"[DEBUG] Planning FAILED - no plan found")
+            if bpg is not None:
+                print(f"  Explored {len(bpg._state_ids)} BPG nodes")
             raise AgentFailure("No plan found")
 
+        print(f"[DEBUG] Planning SUCCESS - found plan with {len(plan.actions)} actions")
         return plan.actions
