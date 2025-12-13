@@ -372,9 +372,15 @@ class GroundMoveToTgtSurfaceController(Dynamic2dRobotController):
 
         robot_pose = gripper_target_pose
 
+        # Get current robot state
+        robot_x = state.get(self._robot, "x")
+        robot_y = state.get(self._robot, "y")
+        robot_theta = state.get(self._robot, "theta")
+        current_wp = (SE2Pose(robot_x, robot_y, robot_theta), robot_arm_joint)
+
         # IMPORTANT - Do not check if target pose is collision-free
         # Simple waypoint generation
-        final_waypoints: list[tuple[SE2Pose, float]] = []
+        final_waypoints: list[tuple[SE2Pose, float]] = [current_wp]
         final_waypoints.append((robot_pose, robot_arm_joint))
         return final_waypoints
 
