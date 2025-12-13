@@ -210,7 +210,7 @@ class Dynamic2dRobotController(GroundParameterizedController, abc.ABC):
             distance_fn=distance_fn,
             rng=rng,
             num_attempts=10,
-            num_iters=500,  # Increased from 100 to handle longer distances
+            num_iters=2000,  # Increased from 100->500->2000 for long-distance navigation
             smooth_amt=50,
         )
 
@@ -235,7 +235,7 @@ class Dynamic2dRobotController(GroundParameterizedController, abc.ABC):
 
                 if birrt_path is None:
                     # If planning fails, fall back to direct interpolation
-                    print(f"  [BIRRT_DEBUG] BiRRT FAILED after 500 iters, falling back to direct interpolation")
+                    print(f"  [BIRRT_DEBUG] BiRRT FAILED after 2000 iters, falling back to direct interpolation")
                     path = list(extend_fn(start, end))
                 else:
                     print(f"  [BIRRT_DEBUG] BiRRT succeeded, path length={len(birrt_path)}")
