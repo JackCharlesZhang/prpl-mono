@@ -322,60 +322,25 @@ class GroundMoveToTgtSurfaceController(Dynamic2dRobotController):
         self, state: ObjectCentricState
     ) -> list[tuple[SE2Pose, float]]:
         robot_arm_joint = state.get(self._robot, "arm_joint")
-        gripper_height = state.get(self._robot, "gripper_base_height")
-        tgt_x = state.get(self._tgt_surface, "x")
-        tgt_y = state.get(self._tgt_surface, "y")
-        tgt_theta = state.get(self._tgt_surface, "theta")
-        tgt_width = state.get(self._tgt_surface, "width")
-        tgt_height = state.get(self._tgt_surface, "height")
-        block_width = state.get(self._tgt_block, "width")
-        block_height = state.get(self._tgt_block, "height")
-
-        print(tgt_x, tgt_y, block_height)
-
-        target_region_pose = SE2Pose(tgt_x, tgt_y, tgt_theta) * SE2Pose(
-            tgt_width / 2, tgt_height / 2, 0.0
-        )
-
-        print(f"target region pose {target_region_pose}")
-
-        # Calculate target position from parameters
-        params = cast(float, self._current_params)
-        target_theta = params * 2 * np.pi - np.pi
-        tgt_pose_center = SE2Pose(
-            target_region_pose.x, target_region_pose.y, target_theta
-        )
-
-        print(f"tgt pose center {tgt_pose_center}")
-        bottom2center = SE2Pose(block_width / 2, block_height / 2, 0.0)
-        tgt_pose_bottom = tgt_pose_center * bottom2center.inverse
-
-        print(f"tgt pose bottom {tgt_pose_bottom}")
-
-        # Calculate robot pose to place block on surface
-        surface_top_y = tgt_pose_bottom.y
-        print(f"surface top y {surface_top_y}")
-        block_center_y = (
-            surface_top_y + block_height
-        )  # Center of block when placed on surface
-        print(block_center_y)
-        # Calculate gripper target position (above the block center for placement)
-        # Gripper should be positioned above the block with some clearance
-        gripper_clearance = gripper_height
-        gripper_target_y = block_center_y + gripper_clearance
-
-        # Gripper target pose (above the block center, at same x as block center)
-        print(f"gripper target y  {gripper_target_y} ")
-        gripper_target_pose = SE2Pose(
-            tgt_pose_bottom.x, tgt_pose_bottom.y + gripper_target_y, target_theta
-        )
-
-        robot_pose = gripper_target_pose
-
-        # Get current robot state
         robot_x = state.get(self._robot, "x")
         robot_y = state.get(self._robot, "y")
         robot_theta = state.get(self._robot, "theta")
+
+        # The goal is to move the robot above the target surface
+        # AboveTgtSurface is satisfied when abs(robot_x - target_surface_x) < 0.01
+        tgt_surface_x = state.get(self._tgt_surface, "x")
+
+        # Sample a Y position based on parameters
+        params = cast(float, self._current_params)
+        # Use params to vary Y position while keeping X at target surface
+        # Y position can range within reasonable workspace bounds
+        env_config = DynObstruction2DEnvConfig()
+        target_y = env_config.world_min_y + (env_config.world_max_y - env_config.world_min_y) * params
+
+        # Sample a random orientation
+        target_theta = robot_theta  # Keep current orientation for simplicity
+
+        robot_pose = SE2Pose(tgt_surface_x, target_y, target_theta)
         current_wp = (SE2Pose(robot_x, robot_y, robot_theta), robot_arm_joint)
 
         # IMPORTANT - Do not check if target pose is collision-free
