@@ -50,6 +50,12 @@ class SesamePlanner(BilevelPlanner[_X, _U, _S, _A]):
         x0 = problem.initial_state
         s0 = self._state_abstractor(x0)
 
+        print(f"\n[DEBUG] SesamePlanner.run() starting:")
+        print(f"  Initial abstract state: {s0}")
+        print(f"  Goal: {problem.goal.atoms}")
+        print(f"  Max abstract plans: {self._max_abstract_plans}")
+        print(f"  Timeout: {timeout}s")
+
         # Initialize the bilevel planning graph.
         bpg: BilevelPlanningGraph[_X, _U, _S, _A] = BilevelPlanningGraph()
         bpg.add_state_node(x0)
@@ -74,16 +80,33 @@ class SesamePlanner(BilevelPlanner[_X, _U, _S, _A]):
             try:
                 s_plan, a_plan = next(gen)
                 num_abstract_plans += 1
+                elapsed = time.perf_counter() - start_time
+                print(f"\n[DEBUG] Abstract plan #{num_abstract_plans} generated (elapsed: {elapsed:.2f}s):")
+                print(f"  Plan length: {len(a_plan)} actions")
+                for i, action in enumerate(a_plan):
+                    print(f"    {i+1}. {action.name}")
             except StopIteration:
+                print(f"[DEBUG] Abstract planner exhausted (generated {num_abstract_plans} plans total)")
                 break
             # Quit early if timeout.
             remaining_time = timeout - (time.perf_counter() - start_time)
             if remaining_time < 0:
+                print(f"[DEBUG] Timeout reached before refinement")
                 break
             # Try to refine this abstract plan.
+            print(f"[DEBUG] Attempting to refine plan #{num_abstract_plans} (remaining time: {remaining_time:.2f}s)...")
             plan = self._refiner(x0, s_plan, a_plan, remaining_time, bpg)
             # Plan successfully found.
             if plan is not None:
+                print(f"[DEBUG] ✓ Refinement SUCCEEDED! Found complete plan with {len(plan.actions)} actions")
                 return plan, bpg
+            else:
+                elapsed = time.perf_counter() - start_time
+                print(f"[DEBUG] ✗ Refinement FAILED for plan #{num_abstract_plans} (elapsed: {elapsed:.2f}s, BPG nodes: {len(bpg._state_ids)})")
 
+        elapsed = time.perf_counter() - start_time
+        print(f"\n[DEBUG] SesamePlanner.run() finished WITHOUT finding plan:")
+        print(f"  Total time: {elapsed:.2f}s")
+        print(f"  Abstract plans tried: {num_abstract_plans}/{self._max_abstract_plans}")
+        print(f"  BPG nodes explored: {len(bpg._state_ids)}")
         return None, bpg
