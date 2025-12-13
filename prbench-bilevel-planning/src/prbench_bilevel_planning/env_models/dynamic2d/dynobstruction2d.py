@@ -227,7 +227,8 @@ def create_bilevel_planning_models(
         LiftedSkill(PlaceTgtOperator, PlaceTgtController),
         LiftedSkill(PlaceTgtOnSurfaceOperator, PlaceTgtController),
         LiftedSkill(MoveToTgtHeldOperator, MoveToTgtController),
-        LiftedSkill(MoveToTgtEmptyOperator, MoveToTgtController),
+        # TEMP: Comment out MoveToTargetEmpty to force plan #2 (Pick first, then Move held)
+        # LiftedSkill(MoveToTgtEmptyOperator, MoveToTgtController),
          LiftedSkill(MoveFromTgtHeldOperator, MoveFromTgtController),
         LiftedSkill(MoveFromTgtEmptyOperator, MoveFromTgtController),
     }
